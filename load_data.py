@@ -1,5 +1,6 @@
 from __future__ import annotations
 import csv
+import networkx as nx
 from typing import Any
 
 class _WeightedVertex:
@@ -84,7 +85,7 @@ class WeightedGraph:
             # We didn't find an existing vertex for both items.
             raise ValueError
 
-    def get_weight(self, item1: Any, item2: Any) -> int:
+    def get_weight(self, item1: Any, item2: Any) -> float:
         """Return the weight of the edge between the given items.
 
         Return 0 if item1 and item2 are not adjacent.
@@ -144,9 +145,32 @@ class WeightedGraph:
         else:
             return set(self._vertices.keys())
 
+    def to_networkx(self, max_vertices: int = 5000) -> nx.Graph:
+        """Convert this graph into a networkx Graph.
+
+        max_vertices specifies the maximum number of vertices that can appear in the graph.
+        (This is necessary to limit the visualization output for large graphs.)
+
+        Note that this method is provided for you, and you shouldn't change it.
+        """
+        graph_nx = nx.Graph()
+        for v in self._vertices.values():
+            graph_nx.add_node(v.item, kind=v.kind)
+
+            for u in v.neighbours:
+                if graph_nx.number_of_nodes() < max_vertices:
+                    graph_nx.add_node(u.item, kind=u.kind)
+
+                if u.item in graph_nx.nodes and self.get_weight(u.item, v.item) != 0:
+                    graph_nx.add_edge(v.item, u.item, weight=self.get_weight(u.item, v.item))
+
+            if graph_nx.number_of_nodes() >= max_vertices:
+                break
+
+        return graph_nx
+
 def load_weighted_disease_graph(disease_file: str) -> WeightedGraph:
     g = WeightedGraph()
-    seen_diseases = set()
     symptom_index = []
     symptom_count = {}
     symptoms_disease = {}
@@ -171,12 +195,9 @@ def load_weighted_disease_graph(disease_file: str) -> WeightedGraph:
         g.add_vertex(symptom, 'symptom')
         for disease in symptoms_disease[symptom]:
             g.add_vertex(disease, 'disease')
-            if symptom_count[symptom] != 0:
+            if symptom_count[symptom] != 0 and symptoms_disease[symptom][disease] != 0:
                 g.add_edge(symptom, disease, symptoms_disease[symptom][disease] / symptom_count[symptom])
-            else:
-                g.add_edge(symptom, disease, 0)
     return g
 
 if __name__ == '__main__':
     g = load_weighted_disease_graph('symptoms.csv')
-    print(g.get_weight('anxiety and nervousness', 'panic disorder'))
