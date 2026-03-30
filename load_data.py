@@ -156,7 +156,7 @@ class WeightedGraph:
         """
         graph_nx = nx.Graph()
         for v in self._vertices.values():
-            if v.item in symptoms or symptoms == {}:
+            if v.item in symptoms or symptoms == set():
                 graph_nx.add_node(v.item, kind=v.kind)
 
                 for u in v.neighbours:

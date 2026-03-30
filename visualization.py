@@ -1,5 +1,4 @@
 import networkx as nx
-from pyvis.network import Network
 from plotly.graph_objs import Scatter, Figure
 import load_data
 
@@ -13,13 +12,14 @@ COLOUR_SCHEME = [
 LINE_COLOUR = 'rgb(0,0,0)'
 VERTEX_BORDER_COLOUR = 'rgb(50, 50, 50)'
 DISEASE_COLOUR = 'rgb(209, 9, 9)'
-COMMON_DISEASE_COLOUR = 'rgb(245, 112, 29)'
+COMMON_DISEASE_COLOUR = 'rgb(224, 173, 2)'
 SYMPTOM_COLOUR = 'rgb(8, 105, 205)'
 TREATMENT_COLOUR = 'rgb(25, 143, 10)'
+COMMON_TREATMENT_COLOUR = 'rgb(224, 2, 213)'
 
 def visualize_graph(graph: load_data.WeightedGraph,
                     layout: str = 'spring_layout',
-                    max_vertices: int = 200,
+                    max_vertices: int = 300,
                     symptoms: set = set(),
                     output_file: str = '') -> None:
     """Use plotly and networkx to visualize the given graph.
@@ -38,13 +38,22 @@ def visualize_graph(graph: load_data.WeightedGraph,
     y_values = [pos[k][1] for k in graph_nx.nodes]
     labels = list(graph_nx.nodes)
 
-    all_neighbours = [set(graph_nx.neighbors(k)) for k in symptoms]
-    common_diseases = set.intersection(*all_neighbours)
+    common_diseases = set()
+    if symptoms != set():
+        all_poss_diseases = [set(graph_nx.neighbors(k)) for k in symptoms]
+        common_diseases = set.intersection(*all_poss_diseases)
+
+    all_poss_treatments = [set(graph_nx.neighbors(k)) for k in symptoms if graph_nx.nodes[k]['kind'] == 'treatment']
+    common_treatments = set()
+    if all_poss_treatments:
+        common_treatments = set.intersection(*all_poss_treatments)
 
     colours = []
     for k in graph_nx.nodes:
         if k in common_diseases:
             colours.append(COMMON_DISEASE_COLOUR)
+        elif k in common_treatments:
+            colours.append(COMMON_TREATMENT_COLOUR)
         elif graph_nx.nodes[k]['kind'] == 'symptom':
             colours.append(SYMPTOM_COLOUR)
         elif graph_nx.nodes[k]['kind'] == 'disease':
@@ -55,13 +64,14 @@ def visualize_graph(graph: load_data.WeightedGraph,
     edge_traces = []
     for edge in graph_nx.edges:
         weight = 0.1 + graph_nx.edges[edge]['weight'] * 3
+        weight_rgb = 100 - graph_nx.edges[edge]['weight'] * 100
         edge_traces.append(
             Scatter(
                 x=[pos[edge[0]][0], pos[edge[1]][0], None],
                 y=[pos[edge[0]][1], pos[edge[1]][1], None],
                 mode='lines',
                 name='edges',
-                line=dict(color=LINE_COLOUR, width=weight),  # width set per edge
+                line=dict(color=f'rgb({weight_rgb}, {weight_rgb}, {weight_rgb})', width=weight),  # width set per edge
                 hoverinfo='none',
             )
         )
@@ -93,4 +103,13 @@ def visualize_graph(graph: load_data.WeightedGraph,
 
 if __name__ == '__main__':
     g = load_data.load_weighted_disease_graph('symptoms.csv')
-    visualize_graph(g, symptoms={'anxiety and nervousness'})
+    visualize_graph(g)
+
+    import python_ta
+
+    python_ta.check_all(config={
+        'max-line-length': 120,
+        'disable': ['static_type_checker'],
+        'allow-local-imports': True,
+        'max-nested-blocks': 4
+    })
