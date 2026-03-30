@@ -13,11 +13,14 @@ COLOUR_SCHEME = [
 LINE_COLOUR = 'rgb(0,0,0)'
 VERTEX_BORDER_COLOUR = 'rgb(50, 50, 50)'
 DISEASE_COLOUR = 'rgb(209, 9, 9)'
+COMMON_DISEASE_COLOUR = 'rgb(245, 112, 29)'
 SYMPTOM_COLOUR = 'rgb(8, 105, 205)'
+TREATMENT_COLOUR = 'rgb(25, 143, 10)'
 
 def visualize_graph(graph: load_data.WeightedGraph,
                     layout: str = 'spring_layout',
                     max_vertices: int = 200,
+                    symptoms: set = set(),
                     output_file: str = '') -> None:
     """Use plotly and networkx to visualize the given graph.
 
@@ -27,20 +30,31 @@ def visualize_graph(graph: load_data.WeightedGraph,
         - output_file: a filename to save the plotly image to (rather than displaying
             in your web browser)
     """
-    graph_nx = graph.to_networkx(max_vertices)
+    graph_nx = graph.to_networkx(max_vertices, symptoms)
 
     pos = getattr(nx, layout)(graph_nx)
 
     x_values = [pos[k][0] for k in graph_nx.nodes]
     y_values = [pos[k][1] for k in graph_nx.nodes]
     labels = list(graph_nx.nodes)
-    kinds = [graph_nx.nodes[k]['kind'] for k in graph_nx.nodes]
 
-    colours = [DISEASE_COLOUR if kind == 'disease' else SYMPTOM_COLOUR for kind in kinds]
+    all_neighbours = [set(graph_nx.neighbors(k)) for k in symptoms]
+    common_diseases = set.intersection(*all_neighbours)
+
+    colours = []
+    for k in graph_nx.nodes:
+        if k in common_diseases:
+            colours.append(COMMON_DISEASE_COLOUR)
+        elif graph_nx.nodes[k]['kind'] == 'symptom':
+            colours.append(SYMPTOM_COLOUR)
+        elif graph_nx.nodes[k]['kind'] == 'disease':
+            colours.append(DISEASE_COLOUR)
+        else:
+            colours.append(TREATMENT_COLOUR)
 
     edge_traces = []
     for edge in graph_nx.edges:
-        weight = 0.1 + graph_nx.edges[edge]['weight'] * 1.5
+        weight = 0.1 + graph_nx.edges[edge]['weight'] * 3
         edge_traces.append(
             Scatter(
                 x=[pos[edge[0]][0], pos[edge[1]][0], None],
@@ -79,4 +93,4 @@ def visualize_graph(graph: load_data.WeightedGraph,
 
 if __name__ == '__main__':
     g = load_data.load_weighted_disease_graph('symptoms.csv')
-    visualize_graph(g)
+    visualize_graph(g, symptoms={'anxiety and nervousness'})

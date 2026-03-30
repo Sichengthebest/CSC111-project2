@@ -30,7 +30,7 @@ class _WeightedVertex:
         This vertex is initialized with no neighbours.
 
         Preconditions:
-            - kind in {'user', 'book'}
+            - kind in {'symptom', 'disease', 'treatment'}
         """
         self.item = item
         self.kind = kind
@@ -42,11 +42,14 @@ class _WeightedVertex:
 
 
 class WeightedGraph:
-    """A weighted graph used to represent a disease-symptom network or a disease-treament network that keeps track of review scores.
-
-        Note that this is a subclass of the Graph class from Part 1, and so inherits any methods
-        from that class that aren't overridden here.
+    """A weighted graph used to represent a disease-symptom network or a disease-treament network that keeps track of
+    the probability of having a disease if you have the symptom, and the probability a certain drug can be used to treat
+    a disease.
     """
+    # Private Instance Attributes:
+    #     - _vertices:
+    #         A collection of the vertices contained in this graph.
+    #         Maps item to _WeightedVertex object.
     _vertices: dict[Any, _WeightedVertex]
 
     def __init__(self) -> None:
@@ -138,36 +141,93 @@ class WeightedGraph:
         If kind != '', only return the items of the given vertex kind.
 
         Preconditions:
-            - kind in {'', 'user', 'book'}
+            - kind in {'', 'symptom', 'treatment', 'disease'}
         """
         if kind != '':
             return {v.item for v in self._vertices.values() if v.kind == kind}
         else:
             return set(self._vertices.keys())
 
-    def to_networkx(self, max_vertices: int = 5000) -> nx.Graph:
+    def to_networkx(self, max_vertices: int = 5000, symptoms: set = set()) -> nx.Graph:
         """Convert this graph into a networkx Graph.
 
         max_vertices specifies the maximum number of vertices that can appear in the graph.
         (This is necessary to limit the visualization output for large graphs.)
-
-        Note that this method is provided for you, and you shouldn't change it.
         """
         graph_nx = nx.Graph()
         for v in self._vertices.values():
-            graph_nx.add_node(v.item, kind=v.kind)
+            if v.item in symptoms or symptoms == {}:
+                graph_nx.add_node(v.item, kind=v.kind)
 
-            for u in v.neighbours:
-                if graph_nx.number_of_nodes() < max_vertices:
-                    graph_nx.add_node(u.item, kind=u.kind)
+                for u in v.neighbours:
+                    if graph_nx.number_of_nodes() < max_vertices:
+                        graph_nx.add_node(u.item, kind=u.kind)
 
-                if u.item in graph_nx.nodes and self.get_weight(u.item, v.item) != 0:
-                    graph_nx.add_edge(v.item, u.item, weight=self.get_weight(u.item, v.item))
+                    if u.item in graph_nx.nodes and self.get_weight(u.item, v.item) != 0:
+                        graph_nx.add_edge(v.item, u.item, weight=self.get_weight(u.item, v.item))
 
-            if graph_nx.number_of_nodes() >= max_vertices:
-                break
+                if graph_nx.number_of_nodes() >= max_vertices:
+                    break
 
         return graph_nx
+
+    def get_disease_probability(self, disease: str, symptoms: set[str]) -> float:
+        """Return the probability of having the given disease provided the patient has the given symptoms.
+
+        Probability is calculated by finding the product of the probabilities that the patient has the disease given
+        each symptom. Note that this calculation ignores comorbidity and assumes all probabilities are independent.
+
+        Raise a ValueError if disease or any elements of symptoms do not appear as vertices in this graph.
+        """
+        if disease in self._vertices and all({symptom in self._vertices for symptom in symptoms}):
+            disease_probability = 1.0
+            for symptom in symptoms:
+                disease_probability *= self.get_weight(disease, symptom)
+            return disease_probability
+        else:
+            raise ValueError
+
+    def predict_diseases(self, symptoms: set[str], limit: int) -> list[tuple[str, float]]:
+        """Return a list of up to <limit> disease and probability pairs based on likelihood based on the given symptoms.
+
+        The return value is a list of disease and probability pairs, sorted in *descending order* of probability.
+        Probability is calculated based on the above method.
+
+        The returned list does NOT contain:
+            - any disease with a probability of 0.0
+            - any duplicates
+            - any vertices that represents a symptom (instead of a disease)
+
+        Up to <limit> pairs are returned, starting with the disease with the highest probability,
+        then the second-highest probability, etc. Fewer than <limit> pairs are returned if
+        and only if there aren't enough pairs that meet the above criteria.
+
+        Preconditions:
+            - diseases in self._vertices
+            - self._vertices[disease].kind == 'disease'
+            - all({symptom in self._vertices for symptom in symptoms})
+            - all({self._vertices[symptom].kind == 'symptom' for symptom in symptoms})
+            - limit >= 1
+        """
+        diseases = {}  # mapping of diseases to the probability of having that disease
+        for vertex in self._vertices:
+            if self._vertices[vertex].kind == 'disease':
+                diseases[vertex] = self.get_disease_probability(vertex, symptoms)
+        probable_diseases = []
+        for i in range(limit):
+            if len(diseases) != 0:
+                most_probable_so_far = list(diseases.keys())[0]
+                for disease in diseases:
+                    if diseases[disease] > diseases[most_probable_so_far]:
+                        most_probable_so_far = disease
+                if diseases[most_probable_so_far] != 0.0:
+                    probable_diseases.append((most_probable_so_far, diseases[most_probable_so_far]))
+                    diseases.pop(most_probable_so_far)
+                else:
+                    break
+            else:
+                break
+        return probable_diseases
 
 def load_weighted_disease_graph(disease_file: str) -> WeightedGraph:
     g = WeightedGraph()
@@ -194,6 +254,8 @@ def load_weighted_disease_graph(disease_file: str) -> WeightedGraph:
     for symptom in symptoms_disease:
         g.add_vertex(symptom, 'symptom')
         for disease in symptoms_disease[symptom]:
+            if symptom == disease:
+                print(symptom)
             g.add_vertex(disease, 'disease')
             if symptom_count[symptom] != 0 and symptoms_disease[symptom][disease] != 0:
                 g.add_edge(symptom, disease, symptoms_disease[symptom][disease] / symptom_count[symptom])
