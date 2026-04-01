@@ -1,6 +1,10 @@
+"""Visualize the graph with networkx and plotly"""
+
+import networkx
 import networkx as nx
 from plotly.graph_objs import Scatter, Figure
-import load_data
+from load_data import load_weighted_disease_graph
+from graph import WeightedGraph
 
 COLOUR_SCHEME = [
     '#2E91E5', '#E15F99', '#1CA71C', '#FB0D0D', '#DA16FF', '#222A2A', '#B68100',
@@ -17,10 +21,11 @@ SYMPTOM_COLOUR = 'rgb(8, 105, 205)'
 TREATMENT_COLOUR = 'rgb(25, 143, 10)'
 COMMON_TREATMENT_COLOUR = 'rgb(224, 2, 213)'
 
-def visualize_graph(graph: load_data.WeightedGraph,
+
+def visualize_graph(graph: WeightedGraph,
                     layout: str = 'spring_layout',
                     max_vertices: int = 300,
-                    symptoms: set = set(),
+                    symptoms: set = None,
                     output_file: str = '') -> None:
     """Use plotly and networkx to visualize the given graph.
 
@@ -38,28 +43,7 @@ def visualize_graph(graph: load_data.WeightedGraph,
     y_values = [pos[k][1] for k in graph_nx.nodes]
     labels = list(graph_nx.nodes)
 
-    common_diseases = set()
-    if symptoms != set():
-        all_poss_diseases = [set(graph_nx.neighbors(k)) for k in symptoms]
-        common_diseases = set.intersection(*all_poss_diseases)
-
-    all_poss_treatments = [set(graph_nx.neighbors(k)) for k in symptoms if graph_nx.nodes[k]['kind'] == 'treatment']
-    common_treatments = set()
-    if all_poss_treatments:
-        common_treatments = set.intersection(*all_poss_treatments)
-
-    colours = []
-    for k in graph_nx.nodes:
-        if k in common_diseases:
-            colours.append(COMMON_DISEASE_COLOUR)
-        elif k in common_treatments:
-            colours.append(COMMON_TREATMENT_COLOUR)
-        elif graph_nx.nodes[k]['kind'] == 'symptom':
-            colours.append(SYMPTOM_COLOUR)
-        elif graph_nx.nodes[k]['kind'] == 'disease':
-            colours.append(DISEASE_COLOUR)
-        else:
-            colours.append(TREATMENT_COLOUR)
+    colours = set_colours(graph_nx, symptoms)
 
     edge_traces = []
     for edge in graph_nx.edges:
@@ -101,9 +85,40 @@ def visualize_graph(graph: load_data.WeightedGraph,
         fig.write_image(output_file)
 
 
+def set_colours(graph_nx: networkx.Graph, symptoms) -> list[str]:
+    common_diseases = set()
+    if symptoms is not None:
+        all_poss_diseases = [set(graph_nx.neighbors(k)) for k in symptoms]
+        common_diseases = set.intersection(*all_poss_diseases)
+
+    all_poss_treatments = []
+    for k in common_diseases:
+        all_poss_treatments.append(set())
+        for n in graph_nx.neighbors(k):
+            if graph_nx.nodes[n]['kind'] == 'treatment':
+                all_poss_treatments[-1].add(n)
+    common_treatments = set()
+    if all_poss_treatments:
+        common_treatments = set.intersection(*all_poss_treatments)
+
+    colours = []
+    for k in graph_nx.nodes:
+        if k in common_diseases:
+            colours.append(COMMON_DISEASE_COLOUR)
+        elif k in common_treatments:
+            colours.append(COMMON_TREATMENT_COLOUR)
+        elif graph_nx.nodes[k]['kind'] == 'symptom':
+            colours.append(SYMPTOM_COLOUR)
+        elif graph_nx.nodes[k]['kind'] == 'disease':
+            colours.append(DISEASE_COLOUR)
+        else:
+            colours.append(TREATMENT_COLOUR)
+    return colours
+
+
 if __name__ == '__main__':
-    g = load_data.load_weighted_disease_graph('symptoms.csv')
-    visualize_graph(g)
+    g = load_weighted_disease_graph('symptoms.csv', 'treatment.csv')
+    visualize_graph(g, symptoms={'anxiety and nervousness'})
 
     import python_ta
 
