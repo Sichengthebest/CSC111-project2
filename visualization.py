@@ -1,9 +1,7 @@
 """Visualize the graph with networkx and plotly"""
 
-import networkx
 import networkx as nx
 from plotly.graph_objs import Scatter, Figure
-from load_data import load_weighted_disease_graph
 from graph import WeightedGraph
 
 COLOUR_SCHEME = [
@@ -24,7 +22,7 @@ COMMON_TREATMENT_COLOUR = 'rgb(224, 2, 213)'
 
 def visualize_graph(graph: WeightedGraph,
                     layout: str = 'spring_layout',
-                    max_vertices: int = 300,
+                    max_vertices: int = 1000,
                     symptoms: set = None,
                     output_file: str = '') -> None:
     """Use plotly and networkx to visualize the given graph.
@@ -32,6 +30,7 @@ def visualize_graph(graph: WeightedGraph,
     Optional arguments:
         - layout: which graph layout algorithm to use
         - max_vertices: the maximum number of vertices that can appear in the graph
+        - symptoms: the symptoms to include in the graph
         - output_file: a filename to save the plotly image to (rather than displaying
             in your web browser)
     """
@@ -85,7 +84,15 @@ def visualize_graph(graph: WeightedGraph,
         fig.write_image(output_file)
 
 
-def set_colours(graph_nx: networkx.Graph, symptoms) -> list[str]:
+def set_colours(graph_nx: nx.Graph, symptoms: set | None) -> list[str]:
+    """Return a list of the colour of each node in the graph, where:
+
+        - Symptoms use SYMPTOM_COLOUR
+        - Diseases common to all symptoms use COMMON_DISEASE_COLOUR
+        - Other diseases use DISEASE_COLOUR
+        - Treatments common to all common diseases use COMMON_TREATMENT_COLOUR
+        - Other treatments use TREATMENT_COLOUR
+    """
     common_diseases = set()
     if symptoms is not None:
         all_poss_diseases = [set(graph_nx.neighbors(k)) for k in symptoms]
@@ -117,8 +124,8 @@ def set_colours(graph_nx: networkx.Graph, symptoms) -> list[str]:
 
 
 if __name__ == '__main__':
-    g = load_weighted_disease_graph('symptoms.csv', 'treatment.csv')
-    visualize_graph(g, symptoms={'anxiety and nervousness'})
+    # g = load_weighted_disease_graph('symptoms.csv', 'treatment.csv')
+    # visualize_graph(g, symptoms={'anxiety and nervousness'})
 
     import python_ta
 

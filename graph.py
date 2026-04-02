@@ -6,21 +6,22 @@ import networkx as nx
 
 
 class _WeightedVertex:
-    """A vertex in a weighted book review graph, used to represent a user or a book.
+    """A vertex in a weighted diagnosis graph, used to represent a symptom, a disease or a treatment.
 
-        Same documentation as _Vertex from Part 1, except now neighbours is a dictionary mapping
-        a neighbour vertex to the weight of the edge to from self to that neighbour.
+    Each vertex item is the name of a symptom, a disease, or a treatment. All are represented as strings.
+    Here, neighbours is a dictionary mapping a neighbour vertex to the weight of the edge to from self to that
+    neighbour.
 
-        Instance Attributes:
-            - item: The data stored in this vertex, representing a disease name, symptom, or treatment.
-            - kind: The type of this vertex: 'disease', 'symptom', or 'book'.
-            - neighbours: The vertices that are adjacent to this vertex, and their corresponding
-                edge weights.
+    Instance Attributes:
+        - item: The data stored in this vertex, representing a disease name, symptom, or treatment.
+        - kind: The type of this vertex: 'disease', 'symptom', or 'treatment'.
+        - neighbours: The vertices that are adjacent to this vertex, and their corresponding
+            edge weights.
 
-        Representation Invariants:
-            - self not in self.neighbours
-            - all(self in u.neighbours for u in self.neighbours)
-            - self.kind in {'disease', 'symptom', 'treatment'}
+    Representation Invariants:
+        - self not in self.neighbours
+        - all(self in u.neighbours for u in self.neighbours)
+        - self.kind in {'disease', 'symptom', 'treatment'}
     """
     item: str
     kind: str
@@ -44,11 +45,10 @@ class _WeightedVertex:
 
 
 class WeightedGraph:
-    """A weighted graph used to represent a disease-symptom network or a disease-treament network that keeps track of
-    the probability of having a disease if you have the symptom, and the probability a certain drug can be used to treat
-    a disease.
+    """A weighted graph used to represent a symptom-disease-treatment network that keeps track of the probability of
+    having a disease if the symptom is observed, and the probability a certain drug can be used to treat a disease.
     """
-    # Prigvate Instance Attributes:
+    # Private Instance Attributes:
     #     - _vertices:
     #         A collection of the vertices contained in this graph.
     #         Maps item to _WeightedVertex object.
@@ -143,14 +143,14 @@ class WeightedGraph:
         If kind != '', only return the items of the given vertex kind.
 
         Preconditions:
-            - kind in {'', 'symptom', 'treatment', 'disease'}
+            - kind in {'symptom', 'treatment', 'disease'}
         """
         if kind != '':
             return {v.item for v in self._vertices.values() if v.kind == kind}
         else:
             return set(self._vertices.keys())
 
-    def to_networkx(self, max_vertices: int = 5000, symptoms: set = None) -> nx.Graph:
+    def to_networkx(self, max_vertices: int = 1000, symptoms: set = None) -> nx.Graph:
         """Convert this graph into a networkx Graph.
 
         max_vertices specifies the maximum number of vertices that can appear in the graph.
@@ -206,6 +206,8 @@ class WeightedGraph:
             - any duplicates
             - any vertices that do not represent a disease
 
+        The probabilities are normalized so that they sum to 1.
+
         Up to <limit> pairs are returned, starting with the disease with the highest probability,
         then the second-highest probability, etc. Fewer than <limit> pairs are returned if
         and only if there aren't enough pairs that meet the above criteria.
@@ -223,23 +225,14 @@ class WeightedGraph:
         for vertex in self._vertices:
             if self._vertices[vertex].kind == 'disease':
                 diseases[vertex] = self.get_disease_probability(vertex, symptoms)
-        probable_diseases = []
+        probable_diseases = [(disease, diseases[disease]) for disease in diseases]
+        probable_diseases.sort(key=lambda disease_pair: disease_pair[1], reverse=True)
         if limit is None:
             limit = len(diseases)
-        for _ in range(limit):
-            if len(diseases) != 0:
-                most_probable_so_far = list(diseases.keys())[0]
-                for disease in diseases:
-                    if diseases[disease] > diseases[most_probable_so_far]:
-                        most_probable_so_far = disease
-                if diseases[most_probable_so_far] != 0.0:
-                    probable_diseases.append((most_probable_so_far, diseases[most_probable_so_far]))
-                    diseases.pop(most_probable_so_far)
-                else:
-                    break
-            else:
-                break
-        return normalize_probabilities(probable_diseases)
+        cutoff = 0
+        while cutoff < len(probable_diseases) and cutoff < limit and probable_diseases[cutoff][1] != 0.0:
+            cutoff += 1
+        return normalize_probabilities(probable_diseases[:cutoff])
 
     def predict_treatments(self, symptoms: set[str], limit: int = None) -> list[tuple[str, float]]:
         """Return a list of up to <limit> treatment and probability pairs based on likelihood based on the given
@@ -248,7 +241,7 @@ class WeightedGraph:
         The return value is a list of treatment and probability pairs, sorted in *descending order* of probability.
         Probability is calculated by first calculating disease probabilities based on the method described in the
         docstring for predict diseases and then finding the sum of the products of the probability the patient has some
-        disease and the probabiility that the treatment will be used in treating that disease. Note that this
+        disease and the probability that the treatment will be used in treating that disease. Note that this
         calculation ignores potential side effects the treatment may have with diseases it does not treat.
 
         The returned list does NOT contain:
@@ -278,29 +271,24 @@ class WeightedGraph:
                         treatments[treatment] += probability * self.get_weight(disease, treatment)
                     else:
                         treatments[treatment] = probability * self.get_weight(disease, treatment)
-        probable_treatments = []
+        probable_treatments = [(treatment, treatments[treatment]) for treatment in treatments]
+        probable_treatments.sort(key=lambda treatment_pair: treatment_pair[1], reverse=True)
         if limit is None:
             limit = len(treatments)
-        for _ in range(limit):
-            if len(treatments) != 0:
-                most_probable_so_far = list(treatments.keys())[0]
-                for treatment in treatments:
-                    if treatments[treatment] > treatments[most_probable_so_far]:
-                        most_probable_so_far = treatment
-                if treatments[most_probable_so_far] != 0.0:
-                    probable_treatments.append((most_probable_so_far, treatments[most_probable_so_far]))
-                    treatments.pop(most_probable_so_far)
-                else:
-                    break
-            else:
-                break
-        return probable_treatments
+        cutoff = 0
+        while cutoff < len(probable_treatments) and cutoff < limit and probable_treatments[cutoff][1] != 0.0:
+            cutoff += 1
+        return probable_treatments[:cutoff]
 
 
 def normalize_probabilities(probable: list[tuple[str, float]]) -> list[tuple[str, float]]:
     """Returns a list that is the same list as given, but with the floats normalized.
 
     Normalization indicates that the floats now add up to 1.0, and relative proportions are preserved.
+
+    >>> probable = [('abc', 0.2), ('def', 0.3)]
+    >>> normalize_probabilities(probable)
+    [('abc', 0.4), ('def', 0.6)]
     """
     total = 0.0
     for item, prob in probable:
@@ -309,3 +297,17 @@ def normalize_probabilities(probable: list[tuple[str, float]]) -> list[tuple[str
     for item, prob in probable:
         normalized_probable.append((item, prob / total))
     return normalized_probable
+
+
+if __name__ == '__main__':
+    import python_ta
+
+    python_ta.check_all(config={
+        'max-line-length': 120,
+        'disable': ['static_type_checker'],
+        'allow-local-imports': True,
+        'max-nested-blocks': 4
+    })
+
+    import doctest
+    doctest.testmod()

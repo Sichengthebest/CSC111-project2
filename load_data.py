@@ -11,8 +11,10 @@ def load_weighted_disease_graph(disease_file: str, treatment_file: str) -> Weigh
 
     The graph stores one vertex for each disease, symptom, and treatment in the datasets.
 
-    Edges represent the chance of having a disease given a symptom, and the chance of a disease being able to be treated
-    by a certain treatment."""
+    An edge between a disease vertex and a symptom vertex is weighted equal to the probability of having that disease
+    given the patient has the symptom. An edge between a treatment vertex and a disease vertex is weighted equal to
+    the probability that the disease can be treated by that treatment.
+    """
     g = WeightedGraph()
 
     symptoms_disease, symptom_count = load_disease_file(disease_file)
@@ -43,7 +45,12 @@ def load_weighted_disease_graph(disease_file: str, treatment_file: str) -> Weigh
 
 
 def load_disease_file(disease_file: str) -> tuple[dict, dict]:
-    """Loads two dictionaries about the relationship between diseases and symptoms."""
+    """Return a tuple of two dictionaries about the relationship between diseases and symptoms from a csv file.
+
+    The first dictionary maps symptoms to another dictionary mapping a disease to the number of patients with
+    the aforementioned symptom. The second dictionary maps each symptom to the total number of patients with the
+    symptom.
+    """
     symptom_index = []
     symptom_count = {}
     symptoms_disease = {}
@@ -68,7 +75,12 @@ def load_disease_file(disease_file: str) -> tuple[dict, dict]:
 
 
 def load_treatment_file(treatment_file: str) -> tuple[dict, dict]:
-    """Loads two dictionaries about the relationship between diseases and treatments."""
+    """Return a tuple of two dictionaries about the relationship between diseases and treatments from a csv file.
+
+    The first dictionary maps each disease to another dictionary mapping a treatment to the number of patients with
+    the aforementioned disease that can be treated with the treatment. The second dictionary maps each symptom to
+    the total number of patients with the disease.
+    """
     disease_treatment = {}
     disease_count = {}
     with open(treatment_file) as file:
@@ -92,7 +104,6 @@ def load_treatment_file(treatment_file: str) -> tuple[dict, dict]:
 
 
 if __name__ == '__main__':
-    # g = load_weighted_disease_graph('symptoms.csv', 'treatment.csv')
     import python_ta
 
     python_ta.check_all(config={
@@ -101,3 +112,6 @@ if __name__ == '__main__':
         'allow-local-imports': True,
         'max-nested-blocks': 4
     })
+
+    import doctest
+    doctest.testmod()
