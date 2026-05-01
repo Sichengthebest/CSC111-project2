@@ -225,7 +225,7 @@ class WeightedGraph:
         for vertex in self._vertices:
             if self._vertices[vertex].kind == 'disease':
                 diseases[vertex] = self.get_disease_probability(vertex, symptoms)
-        probable_diseases = [(disease, diseases[disease]) for disease in diseases]
+        probable_diseases = [(d, diseases[d]) for d in diseases]
         probable_diseases.sort(key=lambda disease_pair: disease_pair[1], reverse=True)
         if limit is None:
             limit = len(diseases)
@@ -271,7 +271,7 @@ class WeightedGraph:
                         treatments[treatment] += probability * self.get_weight(disease, treatment)
                     else:
                         treatments[treatment] = probability * self.get_weight(disease, treatment)
-        probable_treatments = [(treatment, treatments[treatment]) for treatment in treatments]
+        probable_treatments = [(t, treatments[t]) for t in treatments]
         probable_treatments.sort(key=lambda treatment_pair: treatment_pair[1], reverse=True)
         if limit is None:
             limit = len(treatments)
@@ -305,8 +305,7 @@ if __name__ == '__main__':
     python_ta.check_all(config={
         'max-line-length': 120,
         'disable': ['static_type_checker'],
-        'allow-local-imports': True,
-        'max-nested-blocks': 4
+        'allow-local-imports': True
     })
 
     import doctest
