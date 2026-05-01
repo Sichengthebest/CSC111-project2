@@ -4,14 +4,6 @@ import networkx as nx
 from plotly.graph_objs import Scatter, Figure
 from graph import WeightedGraph
 
-COLOUR_SCHEME = [
-    '#2E91E5', '#E15F99', '#1CA71C', '#FB0D0D', '#DA16FF', '#222A2A', '#B68100',
-    '#750D86', '#EB663B', '#511CFB', '#00A08B', '#FB00D1', '#FC0080', '#B2828D',
-    '#6C7C32', '#778AAE', '#862A16', '#A777F1', '#620042', '#1616A7', '#DA60CA',
-    '#6C4516', '#0D2A63', '#AF0038'
-]
-
-LINE_COLOUR = 'rgb(0,0,0)'
 VERTEX_BORDER_COLOUR = 'rgb(50, 50, 50)'
 DISEASE_COLOUR = 'rgb(209, 9, 9)'
 COMMON_DISEASE_COLOUR = 'rgb(224, 173, 2)'
@@ -56,6 +48,7 @@ def visualize_graph(graph: WeightedGraph,
                 name='edges',
                 line=dict(color=f'rgb({weight_rgb}, {weight_rgb}, {weight_rgb})', width=weight),  # width set per edge
                 hoverinfo='none',
+                showlegend=False
             )
         )
     trace4 = Scatter(x=x_values,
@@ -69,12 +62,42 @@ def visualize_graph(graph: WeightedGraph,
                                  ),
                      text=labels,
                      hovertemplate='%{text}',
-                     hoverlabel={'namelength': 0}
+                     hoverlabel={'namelength': 0},
+                     showlegend=False
                      )
 
-    data1 = edge_traces + [trace4]
+    unique_colours = {
+        "Symptoms": SYMPTOM_COLOUR,
+        "Diseases": DISEASE_COLOUR,
+        "Common diseases": COMMON_DISEASE_COLOUR,
+        "Treatments": TREATMENT_COLOUR,
+        "Common treatments": COMMON_TREATMENT_COLOUR
+    }
+
+    legend_traces = [
+        Scatter(
+            x=[None], y=[None],
+            mode='markers',
+            name=category,
+            marker=dict(symbol='circle-dot', size=8, color=colour,
+                        line=dict(color=VERTEX_BORDER_COLOUR, width=0.5)),
+            showlegend=True,
+        )
+        for category, colour in unique_colours.items()
+    ]
+
+    data1 = edge_traces + [trace4] + legend_traces
     fig = Figure(data=data1)
-    fig.update_layout({'showlegend': False})
+    fig.update_layout(
+        showlegend=True,
+        legend=dict(
+            title='Node Colour',
+            itemsizing='constant',
+            bgcolor='rgba(255,255,255,0.8)',
+            bordercolor='lightgrey',
+            borderwidth=1,
+        )
+    )
     fig.update_xaxes(showgrid=False, zeroline=False, visible=False)
     fig.update_yaxes(showgrid=False, zeroline=False, visible=False)
 
@@ -95,7 +118,7 @@ def set_colours(graph_nx: nx.Graph, symptoms: set | None) -> list[str]:
     """
     common_diseases = set()
     if symptoms is not None:
-        all_poss_diseases = [set(graph_nx.neighbors(k)) for k in symptoms]
+        all_poss_diseases = [set(graph_nx.neighbors(s)) for s in symptoms]
         common_diseases = set.intersection(*all_poss_diseases)
 
     all_poss_treatments = []

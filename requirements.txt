@@ -1,0 +1,11 @@
+# CSC111 Project 2: Python libraries used in our project.
+
+# Testing and code checking
+hypothesis
+pytest
+python-ta
+
+# Graphics and data visualization
+plotly
+networkx
+numpy
